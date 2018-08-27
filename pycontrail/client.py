@@ -70,10 +70,13 @@ class Client(object):
     POOL_MAXSIZE = 100
 
     def __init__(self, url='http://localhost:8082/',
-                 blocking=True, headers=None, auth_params=None):
+                 blocking=True, headers=None, auth_params=None,
+                 timeout=31, max_retries=3):
         self.api_url = url
         self._auth_params = auth_params
         self._headers = headers or Client._DEFAULT_HEADERS
+        self._max_retries = max_retries
+        self._timeout = timeout
 
         self._obj_serializer = self._obj_serializer_diff
         if hasattr(pycontrail.gen.vnc_api_client_gen, 'all_resource_types'):
@@ -172,6 +175,7 @@ class Client(object):
             pformat(url), pformat(headers), pformat(query_params))
         response = None
         response = self._api_server_session.get(url, headers=headers,
+                                                timeout=self._timeout,
                                                 params=query_params)
         logger.debug('GET Response %s %s',
             pformat(response.status_code), pformat(response.text))
@@ -227,6 +231,8 @@ class Client(object):
                     raise
      
                 retried += 1
+                if retried >= self._max_retries:
+                    raise
                 time.sleep(1)
                 self._create_api_server_session()
                 continue
